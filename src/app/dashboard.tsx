@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -65,7 +65,21 @@ export default function Dashboard() {
 
   const fetchRecords = async () => {
     const records = await fetchAttendanceRecords(currentMonth);
-    setAttendanceRecords(records);
+    const groupedRecords = records.reduce((acc, record) => {
+      const dateString = record.date.toISOString().split("T")[0];
+      if (!acc[dateString]) {
+        acc[dateString] = { ...record };
+      } else {
+        acc[dateString] = {
+          ...acc[dateString],
+          ...record,
+          hoursWorked:
+            (acc[dateString].hoursWorked || 0) + (record.hoursWorked || 0),
+        };
+      }
+      return acc;
+    }, {} as Record<string, AttendanceRecord>);
+    setAttendanceRecords(Object.values(groupedRecords));
   };
 
   const fetchHourlyRate = async () => {
@@ -176,9 +190,8 @@ export default function Dashboard() {
         <text x="10" y="60" font-size="14">日付</text>
         <text x="100" y="60" font-size="14">出勤</text>
         <text x="190" y="60" font-size="14">退勤</text>
-        <text x="280" y="60" font-size="14">休憩開始</text>
-        <text x="370" y="60" font-size="14">休憩終了</text>
-        <text x="460" y="60" font-size="14">勤務時間</text>
+        <text x="280" y="60" font-size="14">休憩時間</text>
+        <text x="400" y="60" font-size="14">勤務時間</text>
         <line x1="10" y1="70" x2="590" y2="70" stroke="black" stroke-width="1" />
         ${attendanceRecords
           .map(
@@ -193,12 +206,11 @@ export default function Dashboard() {
               record.clockOut?.toLocaleTimeString() || "-"
             }</text>
           <text x="280" y="${90 + index * 30}" font-size="12">${
-              record.breakStart?.toLocaleTimeString() || "-"
+              record.breakStart && record.breakEnd
+                ? `${record.breakStart.toLocaleTimeString()} - ${record.breakEnd.toLocaleTimeString()}`
+                : "-"
             }</text>
-          <text x="370" y="${90 + index * 30}" font-size="12">${
-              record.breakEnd?.toLocaleTimeString() || "-"
-            }</text>
-          <text x="460" y="${90 + index * 30}" font-size="12">${
+          <text x="400" y="${90 + index * 30}" font-size="12">${
               record.hoursWorked?.toFixed(2) || "-"
             }時間</text>
         `
@@ -347,8 +359,7 @@ export default function Dashboard() {
                 <TableHead>日付</TableHead>
                 <TableHead>出勤時間</TableHead>
                 <TableHead>退勤時間</TableHead>
-                <TableHead>休憩開始</TableHead>
-                <TableHead>休憩終了</TableHead>
+                <TableHead>休憩時間</TableHead>
                 <TableHead>勤務時間</TableHead>
                 <TableHead>編集</TableHead>
               </TableRow>
@@ -364,10 +375,9 @@ export default function Dashboard() {
                     {record.clockOut?.toLocaleTimeString() || "-"}
                   </TableCell>
                   <TableCell>
-                    {record.breakStart?.toLocaleTimeString() || "-"}
-                  </TableCell>
-                  <TableCell>
-                    {record.breakEnd?.toLocaleTimeString() || "-"}
+                    {record.breakStart && record.breakEnd
+                      ? `${record.breakStart.toLocaleTimeString()} - ${record.breakEnd.toLocaleTimeString()}`
+                      : "-"}
                   </TableCell>
                   <TableCell>
                     {record.hoursWorked?.toFixed(2) || "-"}時間
