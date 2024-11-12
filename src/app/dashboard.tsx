@@ -50,6 +50,7 @@ type GroupedAttendanceRecord = {
 export default function Dashboard() {
   const [clockedIn, setClockedIn] = useState(false);
   const [onBreak, setOnBreak] = useState(false);
+  const [breakTaken, setBreakTaken] = useState(false); // 新しい状態変数
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [hourlyRate, setHourlyRate] = useState(1000);
   const [attendanceRecords, setAttendanceRecords] = useState<
@@ -126,13 +127,16 @@ export default function Dashboard() {
     switch (action) {
       case "clockIn":
         setClockedIn(true);
+        setBreakTaken(false); // 新しい勤務が開始されたときに休憩状態をリセット
         break;
       case "clockOut":
         setClockedIn(false);
         setOnBreak(false);
+        setBreakTaken(false); // 退勤時に休憩状態をリセット
         break;
       case "breakStart":
         setOnBreak(true);
+        setBreakTaken(true); // 休憩開始時に休憩済みフラグを立てる
         break;
       case "breakEnd":
         setOnBreak(false);
@@ -311,7 +315,7 @@ export default function Dashboard() {
           </Button>
           <Button
             onClick={() => recordAction("breakStart")}
-            disabled={!clockedIn || onBreak}
+            disabled={!clockedIn || onBreak || breakTaken}
           >
             休憩開始
           </Button>
