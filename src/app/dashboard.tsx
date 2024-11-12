@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -21,12 +21,19 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Download, ChevronLeft, ChevronRight, Edit } from "lucide-react";
+import {
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  Edit,
+  Trash2,
+} from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import {
   recordAttendanceAction,
   fetchAttendanceRecords,
   updateAttendanceRecord,
+  deleteAttendanceRecord,
   getCurrentHourlyRate,
   updateHourlyRate,
 } from "./actions";
@@ -34,17 +41,12 @@ import {
 type AttendanceRecord = {
   id: string;
   date: Date;
-  clockIn: Date | null;
-  clockOut: Date | null;
-  breakStart: Date | null;
-  breakEnd: Date | null;
-  hoursWorked: number | null;
+  action: string;
+  actionTime: Date;
   note: string | null;
 };
 
 export default function Dashboard() {
-  const [clockedIn, setClockedIn] = useState(false);
-  const [onBreak, setOnBreak] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [hourlyRate, setHourlyRate] = useState(1000);
   const [attendanceRecords, setAttendanceRecords] = useState<
@@ -83,7 +85,6 @@ export default function Dashboard() {
         title: "アクション記録",
         description: result.message,
       });
-      updateAttendanceState(action);
       fetchRecords();
     } else {
       toast({
@@ -109,29 +110,23 @@ export default function Dashboard() {
     }
   };
 
-  const updateAttendanceState = (action: string) => {
-    switch (action) {
-      case "clockIn":
-        setClockedIn(true);
-        break;
-      case "clockOut":
-        setClockedIn(false);
-        setOnBreak(false);
-        break;
-      case "breakStart":
-        setOnBreak(true);
-        break;
-      case "breakEnd":
-        setOnBreak(false);
-        break;
-    }
-  };
-
   const calculateMonthlyWage = () => {
-    return attendanceRecords.reduce(
-      (total, record) => total + (record.hoursWorked || 0) * hourlyRate,
-      0
-    );
+    let totalHours = 0;
+    let currentClockIn: Date | null = null;
+
+    attendanceRecords.forEach((record, index) => {
+      if (record.action === "clockIn") {
+        currentClockIn = record.actionTime;
+      } else if (record.action === "clockOut" && currentClockIn) {
+        const hours =
+          (record.actionTime.getTime() - currentClockIn.getTime()) /
+          (1000 * 60 * 60);
+        totalHours += hours;
+        currentClockIn = null;
+      }
+    });
+
+    return totalHours * hourlyRate;
   };
 
   const handleHourlyRateChange = () => {
@@ -174,11 +169,9 @@ export default function Dashboard() {
         <text x="10" y="30" font-size="20" font-weight="bold">勤怠記録</text>
         <line x1="10" y1="40" x2="590" y2="40" stroke="black" stroke-width="1" />
         <text x="10" y="60" font-size="14">日付</text>
-        <text x="100" y="60" font-size="14">出勤</text>
-        <text x="190" y="60" font-size="14">退勤</text>
-        <text x="280" y="60" font-size="14">休憩開始</text>
-        <text x="370" y="60" font-size="14">休憩終了</text>
-        <text x="460" y="60" font-size="14">勤務時間</text>
+        <text x="100" y="60" font-size="14">アクション</text>
+        <text x="200" y="60" font-size="14">時間</text>
+        <text x="300" y="60" font-size="14">備考</text>
         <line x1="10" y1="70" x2="590" y2="70" stroke="black" stroke-width="1" />
         ${attendanceRecords
           .map(
@@ -186,21 +179,15 @@ export default function Dashboard() {
           <text x="10" y="${
             90 + index * 30
           }" font-size="12">${record.date.toLocaleDateString()}</text>
-          <text x="100" y="${90 + index * 30}" font-size="12">${
-              record.clockIn?.toLocaleTimeString() || "-"
+          <text x="100" y="${90 + index * 30}" font-size="12">${getActionName(
+              record.action
+            )}</text>
+          <text x="200" y="${
+            90 + index * 30
+          }" font-size="12">${record.actionTime.toLocaleTimeString()}</text>
+          <text x="300" y="${90 + index * 30}" font-size="12">${
+              record.note || "-"
             }</text>
-          <text x="190" y="${90 + index * 30}" font-size="12">${
-              record.clockOut?.toLocaleTimeString() || "-"
-            }</text>
-          <text x="280" y="${90 + index * 30}" font-size="12">${
-              record.breakStart?.toLocaleTimeString() || "-"
-            }</text>
-          <text x="370" y="${90 + index * 30}" font-size="12">${
-              record.breakEnd?.toLocaleTimeString() || "-"
-            }</text>
-          <text x="460" y="${90 + index * 30}" font-size="12">${
-              record.hoursWorked?.toFixed(2) || "-"
-            }時間</text>
         `
           )
           .join("")}
@@ -246,6 +233,25 @@ export default function Dashboard() {
     }
   };
 
+  const handleDeleteClick = async (id: string) => {
+    if (confirm("この記録を削除してもよろしいですか？")) {
+      const result = await deleteAttendanceRecord(id);
+      if (result.success) {
+        fetchRecords();
+        toast({
+          title: "記録削除",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "エラー",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   const changeMonth = (direction: "prev" | "next") => {
     setCurrentMonth((prevMonth) => {
       const newMonth = new Date(prevMonth);
@@ -267,24 +273,10 @@ export default function Dashboard() {
           <CardTitle>勤怠アクション</CardTitle>
         </CardHeader>
         <CardContent className='flex gap-2'>
-          <Button onClick={() => recordAction("clockIn")} disabled={clockedIn}>
-            出勤
-          </Button>
-          <Button
-            onClick={() => recordAction("clockOut")}
-            disabled={!clockedIn || onBreak}
-          >
-            退勤
-          </Button>
-          <Button
-            onClick={() => recordAction("breakStart")}
-            disabled={!clockedIn || onBreak}
-          >
-            休憩開始
-          </Button>
-          <Button onClick={() => recordAction("breakEnd")} disabled={!onBreak}>
-            休憩終了
-          </Button>
+          <Button onClick={() => recordAction("clockIn")}>出勤</Button>
+          <Button onClick={() => recordAction("clockOut")}>退勤</Button>
+          <Button onClick={() => recordAction("breakStart")}>休憩開始</Button>
+          <Button onClick={() => recordAction("breakEnd")}>休憩終了</Button>
         </CardContent>
       </Card>
 
@@ -345,40 +337,36 @@ export default function Dashboard() {
             <TableHeader>
               <TableRow>
                 <TableHead>日付</TableHead>
-                <TableHead>出勤時間</TableHead>
-                <TableHead>退勤時間</TableHead>
-                <TableHead>休憩開始</TableHead>
-                <TableHead>休憩終了</TableHead>
-                <TableHead>勤務時間</TableHead>
-                <TableHead>編集</TableHead>
+                <TableHead>アクション</TableHead>
+                <TableHead>時間</TableHead>
+                <TableHead>備考</TableHead>
+                <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {attendanceRecords.map((record) => (
                 <TableRow key={record.id}>
                   <TableCell>{record.date.toLocaleDateString()}</TableCell>
+                  <TableCell>{getActionName(record.action)}</TableCell>
                   <TableCell>
-                    {record.clockIn?.toLocaleTimeString() || "-"}
+                    {record.actionTime.toLocaleTimeString()}
                   </TableCell>
-                  <TableCell>
-                    {record.clockOut?.toLocaleTimeString() || "-"}
-                  </TableCell>
-                  <TableCell>
-                    {record.breakStart?.toLocaleTimeString() || "-"}
-                  </TableCell>
-                  <TableCell>
-                    {record.breakEnd?.toLocaleTimeString() || "-"}
-                  </TableCell>
-                  <TableCell>
-                    {record.hoursWorked?.toFixed(2) || "-"}時間
-                  </TableCell>
+                  <TableCell>{record.note || "-"}</TableCell>
                   <TableCell>
                     <Button
                       variant='outline'
                       size='sm'
                       onClick={() => handleEditClick(record)}
+                      className='mr-2'
                     >
                       <Edit className='h-4 w-4' />
+                    </Button>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      onClick={() => handleDeleteClick(record.id)}
+                    >
+                      <Trash2 className='h-4 w-4' />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -445,117 +433,30 @@ export default function Dashboard() {
                 />
               </div>
               <div className='grid grid-cols-4 items-center gap-4'>
-                <Label htmlFor='edit-clockIn' className='text-right'>
-                  出勤時間
+                <Label htmlFor='edit-action' className='text-right'>
+                  アクション
                 </Label>
                 <Input
-                  id='edit-clockIn'
-                  type='time'
-                  value={
-                    editingRecord.clockIn?.toTimeString().slice(0, 5) || ""
-                  }
-                  onChange={(e) =>
-                    setEditingRecord({
-                      ...editingRecord,
-                      clockIn: e.target.value
-                        ? new Date(
-                            `${editingRecord.date.toDateString()} ${
-                              e.target.value
-                            }`
-                          )
-                        : null,
-                    })
-                  }
+                  id='edit-action'
+                  value={getActionName(editingRecord.action)}
+                  disabled
                   className='col-span-3'
                 />
               </div>
               <div className='grid grid-cols-4 items-center gap-4'>
-                <Label htmlFor='edit-clockOut' className='text-right'>
-                  退勤時間
+                <Label htmlFor='edit-actionTime' className='text-right'>
+                  時間
                 </Label>
                 <Input
-                  id='edit-clockOut'
+                  id='edit-actionTime'
                   type='time'
-                  value={
-                    editingRecord.clockOut?.toTimeString().slice(0, 5) || ""
-                  }
+                  value={editingRecord.actionTime.toTimeString().slice(0, 5)}
                   onChange={(e) =>
                     setEditingRecord({
                       ...editingRecord,
-                      clockOut: e.target.value
-                        ? new Date(
-                            `${editingRecord.date.toDateString()} ${
-                              e.target.value
-                            }`
-                          )
-                        : null,
-                    })
-                  }
-                  className='col-span-3'
-                />
-              </div>
-              <div className='grid grid-cols-4 items-center gap-4'>
-                <Label htmlFor='edit-breakStart' className='text-right'>
-                  休憩開始
-                </Label>
-                <Input
-                  id='edit-breakStart'
-                  type='time'
-                  value={
-                    editingRecord.breakStart?.toTimeString().slice(0, 5) || ""
-                  }
-                  onChange={(e) =>
-                    setEditingRecord({
-                      ...editingRecord,
-                      breakStart: e.target.value
-                        ? new Date(
-                            `${editingRecord.date.toDateString()} ${
-                              e.target.value
-                            }`
-                          )
-                        : null,
-                    })
-                  }
-                  className='col-span-3'
-                />
-              </div>
-              <div className='grid grid-cols-4 items-center gap-4'>
-                <Label htmlFor='edit-breakEnd' className='text-right'>
-                  休憩終了
-                </Label>
-                <Input
-                  id='edit-breakEnd'
-                  type='time'
-                  value={
-                    editingRecord.breakEnd?.toTimeString().slice(0, 5) || ""
-                  }
-                  onChange={(e) =>
-                    setEditingRecord({
-                      ...editingRecord,
-                      breakEnd: e.target.value
-                        ? new Date(
-                            `${editingRecord.date.toDateString()} ${
-                              e.target.value
-                            }`
-                          )
-                        : null,
-                    })
-                  }
-                  className='col-span-3'
-                />
-              </div>
-              <div className='grid grid-cols-4 items-center gap-4'>
-                <Label htmlFor='edit-hoursWorked' className='text-right'>
-                  勤務時間
-                </Label>
-                <Input
-                  id='edit-hoursWorked'
-                  type='number'
-                  value={editingRecord.hoursWorked || ""}
-                  onChange={(e) =>
-                    setEditingRecord({
-                      ...editingRecord,
-                      hoursWorked: Number(e.target.value),
+                      actionTime: new Date(
+                        `${editingRecord.date.toDateString()} ${e.target.value}`
+                      ),
                     })
                   }
                   className='col-span-3'
@@ -563,7 +464,7 @@ export default function Dashboard() {
               </div>
               <div className='grid grid-cols-4 items-center gap-4'>
                 <Label htmlFor='edit-note' className='text-right'>
-                  備考 *
+                  備考
                 </Label>
                 <Textarea
                   id='edit-note'
@@ -572,18 +473,12 @@ export default function Dashboard() {
                     setEditingRecord({ ...editingRecord, note: e.target.value })
                   }
                   className='col-span-3'
-                  required
                 />
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button
-              onClick={handleEditSave}
-              disabled={!editingRecord || !editingRecord.note}
-            >
-              保存
-            </Button>
+            <Button onClick={handleEditSave}>保存</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

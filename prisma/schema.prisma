@@ -12,20 +12,15 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 model AttendanceRecord {
   id          String   @id @default(cuid())
   date        DateTime
-  clockIn     DateTime?
-  clockOut    DateTime?
-  breakStart  DateTime?
-  breakEnd    DateTime?
-  hoursWorked Float?
+  action      String
+  actionTime  DateTime
   note        String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
-
 model HourlyRate {
   id        String   @id @default(cuid())
   rate      Float

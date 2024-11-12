@@ -12,40 +12,20 @@ export async function recordAttendanceAction(
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   try {
-    let record = await prisma.attendanceRecord.findFirst({
-      where: {
+    const newRecord = await prisma.attendanceRecord.create({
+      data: {
         date: today,
+        action: action,
+        actionTime: now,
       },
     });
 
-    if (!record) {
-      record = await prisma.attendanceRecord.create({
-        data: {
-          date: today,
-        },
-      });
-    }
-
-    const updateData: any = {
-      [action]: now,
-    };
-
-    if (action === "clockOut") {
-      const clockIn = record.clockIn;
-      if (clockIn) {
-        const hoursWorked =
-          (now.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
-        updateData.hoursWorked = parseFloat(hoursWorked.toFixed(2));
-      }
-    }
-
-    await prisma.attendanceRecord.update({
-      where: { id: record.id },
-      data: updateData,
-    });
-
     revalidatePath("/dashboard");
-    return { success: true, message: `${action} recorded successfully` };
+    return {
+      success: true,
+      message: `${action} recorded successfully`,
+      record: newRecord,
+    };
   } catch (error) {
     console.error("Error recording attendance:", error);
     return { success: false, message: "Failed to record attendance" };
@@ -64,9 +44,7 @@ export async function fetchAttendanceRecords(month: Date) {
           lte: endOfMonth,
         },
       },
-      orderBy: {
-        date: "asc",
-      },
+      orderBy: [{ date: "asc" }, { actionTime: "asc" }],
     });
 
     return records;
@@ -88,6 +66,20 @@ export async function updateAttendanceRecord(id: string, data: any) {
   } catch (error) {
     console.error("Error updating attendance record:", error);
     return { success: false, message: "Failed to update record" };
+  }
+}
+
+export async function deleteAttendanceRecord(id: string) {
+  try {
+    await prisma.attendanceRecord.delete({
+      where: { id },
+    });
+
+    revalidatePath("/dashboard");
+    return { success: true, message: "Record deleted successfully" };
+  } catch (error) {
+    console.error("Error deleting attendance record:", error);
+    return { success: false, message: "Failed to delete record" };
   }
 }
 
