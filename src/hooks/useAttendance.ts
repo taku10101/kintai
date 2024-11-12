@@ -12,11 +12,6 @@ export const useAttendance = () => {
   const [breakTaken] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [hourlyRate, setHourlyRate] = useState(1000);
-  type GroupedAttendanceRecord = {
-    date: Date;
-    records: AttendanceRecord[];
-  };
-
   const [attendanceRecords, setAttendanceRecords] = useState<
     GroupedAttendanceRecord[]
   >([]);
@@ -27,15 +22,22 @@ export const useAttendance = () => {
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(
     null
   );
+  type GroupedAttendanceRecord = {
+    date: Date;
+    records: AttendanceRecord[];
+  };
 
   type AttendanceRecord = {
-    id: number;
+    id: string;
     date: Date;
-    clockInTime: Date;
-    clockOutTime: Date | null;
-    breakStartTime: Date | null;
-    breakEndTime: Date | null;
+    clockIn: Date | null;
+    clockOut: Date | null;
+    breakStart: Date | null;
+    breakEnd: Date | null;
     hoursWorked: number | null;
+    note: string | null;
+    createdAt: Date;
+    updatedAt: Date;
   };
 
   useEffect(() => {
@@ -48,20 +50,9 @@ export const useAttendance = () => {
     const groupedRecords = records.reduce(
       (
         acc: {
-          [key: string]: {
-            date: Date;
-            records: {
-              id: number;
-              date: Date;
-              clockInTime: Date;
-              clockOutTime: Date;
-              breakStartTime: Date;
-              breakEndTime: Date;
-              hoursWorked: number;
-            }[];
-          };
+          [key: string]: GroupedAttendanceRecord;
         },
-        record
+        record: AttendanceRecord
       ) => {
         const dateString = record.date.toISOString().split("T")[0];
         if (!acc[dateString]) {
@@ -70,7 +61,7 @@ export const useAttendance = () => {
         acc[dateString].records.push(record);
         return acc;
       },
-      {}
+      {} as { [key: string]: GroupedAttendanceRecord }
     );
     setAttendanceRecords(Object.values(groupedRecords));
   };
@@ -134,7 +125,7 @@ export const useAttendance = () => {
     breakEndTime: Date | null;
     hoursWorked: number | null;
   }) => {
-    setEditingRecord(record);
+    setEditingRecord(record as unknown as AttendanceRecord);
     setIsEditDialogOpen(true);
   };
 
