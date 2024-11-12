@@ -26,7 +26,6 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   recordAttendanceAction,
   fetchAttendanceRecords,
-  updateAttendanceRecord,
   getCurrentHourlyRate,
   updateHourlyRate,
 } from "./actions";
@@ -108,20 +107,20 @@ export default function Dashboard() {
     }
   };
 
-  const getActionName = (action: string): string => {
-    switch (action) {
-      case "clockIn":
-        return "出勤";
-      case "clockOut":
-        return "退勤";
-      case "breakStart":
-        return "休憩開始";
-      case "breakEnd":
-        return "休憩終了";
-      default:
-        return "アクション";
-    }
-  };
+  // const getActionName = (action: string): string => {
+  //   switch (action) {
+  //     case "clockIn":
+  //       return "出勤";
+  //     case "clockOut":
+  //       return "退勤";
+  //     case "breakStart":
+  //       return "休憩開始";
+  //     case "breakEnd":
+  //       return "休憩終了";
+  //     default:
+  //       return "アクション";
+  //   }
+  // };
 
   const updateAttendanceState = (action: string) => {
     switch (action) {
@@ -259,29 +258,29 @@ export default function Dashboard() {
     setIsEditDialogOpen(true);
   };
 
-  const handleEditSave = async () => {
-    if (editingRecord) {
-      const result = await updateAttendanceRecord(
-        editingRecord.id,
-        editingRecord
-      );
-      if (result.success) {
-        setIsEditDialogOpen(false);
-        setEditingRecord(null);
-        fetchRecords();
-        toast({
-          title: "記録更新",
-          description: result.message,
-        });
-      } else {
-        toast({
-          title: "エラー",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-    }
-  };
+  // const handleEditSave = async () => {
+  //   if (editingRecord) {
+  //     const result = await updateAttendanceRecord(
+  //       editingRecord.id,
+  //       editingRecord
+  //     );
+  //     if (result.success) {
+  //       setIsEditDialogOpen(false);
+  //       setEditingRecord(null);
+  //       fetchRecords();
+  //       toast({
+  //         title: "記録更新",
+  //         description: result.message,
+  //       });
+  //     } else {
+  //       toast({
+  //         title: "エラー",
+  //         description: result.message,
+  //         variant: "destructive",
+  //       });
+  //     }
+  //   }
+  // };
 
   const changeMonth = (direction: "prev" | "next") => {
     setCurrentMonth((prevMonth) => {
@@ -618,7 +617,9 @@ export default function Dashboard() {
           )}
           <DialogFooter>
             <Button
-              onClick={handleEditSave}
+              onClick={() => {
+                // handleEditSave();
+              }}
               disabled={!editingRecord || !editingRecord.note}
             >
               保存

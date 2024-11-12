@@ -4,10 +4,8 @@ import { PrismaClient } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 const prisma = new PrismaClient();
-
-export async function recordAttendanceAction(
-  action: "clockIn" | "clockOut" | "breakStart" | "breakEnd"
-) {
+type RecordAction = "clockIn" | "clockOut" | "breakStart" | "breakEnd";
+export async function recordAttendanceAction(action: RecordAction) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -15,7 +13,6 @@ export async function recordAttendanceAction(
     let record;
 
     if (action === "clockIn") {
-      // Always create a new record for clock in
       record = await prisma.attendanceRecord.create({
         data: {
           date: today,
@@ -38,7 +35,14 @@ export async function recordAttendanceAction(
         throw new Error("No matching clock-in record found");
       }
 
-      const updateData: any = {
+      const updateData:
+        | {
+            clockOut?: Date;
+            breakStart?: Date;
+            breakEnd?: Date;
+            hoursWorked?: number;
+          }
+        | Record<string, never> = {
         [action]: now,
       };
 
@@ -105,10 +109,10 @@ export async function getCurrentHourlyRate() {
       },
     });
 
-    return currentRate?.rate || 1000; // デフォルト値として1000円を設定
+    return currentRate?.rate || 1000;
   } catch (error) {
     console.error("Error fetching current hourly rate:", error);
-    return 1000; // エラー時もデフォルト値を返す
+    return 1000;
   }
 }
 
