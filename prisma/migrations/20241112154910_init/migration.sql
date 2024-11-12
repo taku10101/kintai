@@ -2,8 +2,11 @@
 CREATE TABLE "AttendanceRecord" (
     "id" TEXT NOT NULL,
     "date" TIMESTAMP(3) NOT NULL,
-    "action" TEXT NOT NULL,
-    "actionTime" TIMESTAMP(3) NOT NULL,
+    "clockIn" TIMESTAMP(3),
+    "clockOut" TIMESTAMP(3),
+    "breakStart" TIMESTAMP(3),
+    "breakEnd" TIMESTAMP(3),
+    "hoursWorked" DOUBLE PRECISION,
     "note" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
