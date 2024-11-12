@@ -12,37 +12,57 @@ export async function recordAttendanceAction(
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   try {
-    let record = await prisma.attendanceRecord.findFirst({
-      where: {
-        date: today,
-      },
-    });
+    let record;
 
-    if (!record) {
+    if (action === "clockIn") {
+      // Always create a new record for clock in
       record = await prisma.attendanceRecord.create({
         data: {
           date: today,
+          clockIn: now,
         },
       });
-    }
+    } else {
+      // Find the latest unfinished record for the day
+      record = await prisma.attendanceRecord.findFirst({
+        where: {
+          date: today,
+          clockOut: null,
+        },
+        orderBy: {
+          clockIn: "desc",
+        },
+      });
 
-    const updateData: any = {
-      [action]: now,
-    };
-
-    if (action === "clockOut") {
-      const clockIn = record.clockIn;
-      if (clockIn) {
-        const hoursWorked =
-          (now.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
-        updateData.hoursWorked = parseFloat(hoursWorked.toFixed(2));
+      if (!record) {
+        throw new Error("No matching clock-in record found");
       }
-    }
 
-    await prisma.attendanceRecord.update({
-      where: { id: record.id },
-      data: updateData,
-    });
+      const updateData: any = {
+        [action]: now,
+      };
+
+      if (action === "clockOut") {
+        const clockIn = record.clockIn;
+        if (clockIn) {
+          let totalBreakTime = 0;
+          if (record.breakStart && record.breakEnd) {
+            totalBreakTime =
+              (record.breakEnd.getTime() - record.breakStart.getTime()) /
+              (1000 * 60 * 60);
+          }
+          const hoursWorked =
+            (now.getTime() - clockIn.getTime()) / (1000 * 60 * 60) -
+            totalBreakTime;
+          updateData.hoursWorked = parseFloat(hoursWorked.toFixed(2));
+        }
+      }
+
+      await prisma.attendanceRecord.update({
+        where: { id: record.id },
+        data: updateData,
+      });
+    }
 
     revalidatePath("/dashboard");
     return { success: true, message: `${action} recorded successfully` };
@@ -64,30 +84,13 @@ export async function fetchAttendanceRecords(month: Date) {
           lte: endOfMonth,
         },
       },
-      orderBy: {
-        date: "asc",
-      },
+      orderBy: [{ date: "asc" }, { clockIn: "asc" }],
     });
 
     return records;
   } catch (error) {
     console.error("Error fetching attendance records:", error);
     return [];
-  }
-}
-
-export async function updateAttendanceRecord(id: string, data: any) {
-  try {
-    await prisma.attendanceRecord.update({
-      where: { id },
-      data,
-    });
-
-    revalidatePath("/dashboard");
-    return { success: true, message: "Record updated successfully" };
-  } catch (error) {
-    console.error("Error updating attendance record:", error);
-    return { success: false, message: "Failed to update record" };
   }
 }
 

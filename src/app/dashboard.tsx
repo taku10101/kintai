@@ -42,13 +42,18 @@ type AttendanceRecord = {
   note: string | null;
 };
 
+type GroupedAttendanceRecord = {
+  date: Date;
+  records: AttendanceRecord[];
+};
+
 export default function Dashboard() {
   const [clockedIn, setClockedIn] = useState(false);
   const [onBreak, setOnBreak] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [hourlyRate, setHourlyRate] = useState(1000);
   const [attendanceRecords, setAttendanceRecords] = useState<
-    AttendanceRecord[]
+    GroupedAttendanceRecord[]
   >([]);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -68,17 +73,11 @@ export default function Dashboard() {
     const groupedRecords = records.reduce((acc, record) => {
       const dateString = record.date.toISOString().split("T")[0];
       if (!acc[dateString]) {
-        acc[dateString] = { ...record };
-      } else {
-        acc[dateString] = {
-          ...acc[dateString],
-          ...record,
-          hoursWorked:
-            (acc[dateString].hoursWorked || 0) + (record.hoursWorked || 0),
-        };
+        acc[dateString] = { date: record.date, records: [] };
       }
+      acc[dateString].records.push(record);
       return acc;
-    }, {} as Record<string, AttendanceRecord>);
+    }, {} as Record<string, GroupedAttendanceRecord>);
     setAttendanceRecords(Object.values(groupedRecords));
   };
 
@@ -143,7 +142,13 @@ export default function Dashboard() {
 
   const calculateMonthlyWage = () => {
     return attendanceRecords.reduce(
-      (total, record) => total + (record.hoursWorked || 0) * hourlyRate,
+      (total, group) =>
+        total +
+        group.records.reduce(
+          (dayTotal, record) =>
+            dayTotal + (record.hoursWorked || 0) * hourlyRate,
+          0
+        ),
       0
     );
   };
@@ -181,39 +186,55 @@ export default function Dashboard() {
 
   const generateSVG = () => {
     const svgContent = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="600" height="${
-        100 + attendanceRecords.length * 30
+      <svg xmlns="http://www.w3.org/2000/svg" width="800" height="${
+        100 +
+        attendanceRecords.reduce(
+          (total, group) => total + group.records.length * 30,
+          0
+        )
       }" style="font-family: Arial, sans-serif;">
         <rect width="100%" height="100%" fill="#f0f0f0" />
         <text x="10" y="30" font-size="20" font-weight="bold">勤怠記録</text>
-        <line x1="10" y1="40" x2="590" y2="40" stroke="black" stroke-width="1" />
+        <line x1="10" y1="40" x2="790" y2="40" stroke="black" stroke-width="1" />
         <text x="10" y="60" font-size="14">日付</text>
         <text x="100" y="60" font-size="14">出勤</text>
-        <text x="190" y="60" font-size="14">退勤</text>
-        <text x="280" y="60" font-size="14">休憩時間</text>
-        <text x="400" y="60" font-size="14">勤務時間</text>
-        <line x1="10" y1="70" x2="590" y2="70" stroke="black" stroke-width="1" />
+        <text x="200" y="60" font-size="14">退勤</text>
+        <text x="300" y="60" font-size="14">休憩時間</text>
+        <text x="450" y="60" font-size="14">勤務時間</text>
+        <line x1="10" y1="70" x2="790" y2="70" stroke="black" stroke-width="1" />
         ${attendanceRecords
-          .map(
-            (record, index) => `
-          <text x="10" y="${
-            90 + index * 30
-          }" font-size="12">${record.date.toLocaleDateString()}</text>
-          <text x="100" y="${90 + index * 30}" font-size="12">${
-              record.clockIn?.toLocaleTimeString() || "-"
-            }</text>
-          <text x="190" y="${90 + index * 30}" font-size="12">${
-              record.clockOut?.toLocaleTimeString() || "-"
-            }</text>
-          <text x="280" y="${90 + index * 30}" font-size="12">${
-              record.breakStart && record.breakEnd
-                ? `${record.breakStart.toLocaleTimeString()} - ${record.breakEnd.toLocaleTimeString()}`
-                : "-"
-            }</text>
-          <text x="400" y="${90 + index * 30}" font-size="12">${
-              record.hoursWorked?.toFixed(2) || "-"
-            }時間</text>
-        `
+          .map((group, groupIndex) =>
+            group.records
+              .map(
+                (record, recordIndex) => `
+            <text x="10" y="${
+              90 + groupIndex * 30 + recordIndex * 30
+            }" font-size="12">${record.date.toLocaleDateString()}</text>
+            <text x="100" y="${
+              90 + groupIndex * 30 + recordIndex * 30
+            }" font-size="12">${
+                  record.clockIn?.toLocaleTimeString() || "-"
+                }</text>
+            <text x="200" y="${
+              90 + groupIndex * 30 + recordIndex * 30
+            }" font-size="12">${
+                  record.clockOut?.toLocaleTimeString() || "-"
+                }</text>
+            <text x="300" y="${
+              90 + groupIndex * 30 + recordIndex * 30
+            }" font-size="12">${
+                  record.breakStart && record.breakEnd
+                    ? `${record.breakStart.toLocaleTimeString()} - ${record.breakEnd.toLocaleTimeString()}`
+                    : "-"
+                }</text>
+            <text x="450" y="${
+              90 + groupIndex * 30 + recordIndex * 30
+            }" font-size="12">${
+                  record.hoursWorked?.toFixed(2) || "-"
+                }時間</text>
+          `
+              )
+              .join("")
           )
           .join("")}
       </svg>
@@ -365,34 +386,38 @@ export default function Dashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {attendanceRecords.map((record) => (
-                <TableRow key={record.id}>
-                  <TableCell>{record.date.toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    {record.clockIn?.toLocaleTimeString() || "-"}
-                  </TableCell>
-                  <TableCell>
-                    {record.clockOut?.toLocaleTimeString() || "-"}
-                  </TableCell>
-                  <TableCell>
-                    {record.breakStart && record.breakEnd
-                      ? `${record.breakStart.toLocaleTimeString()} - ${record.breakEnd.toLocaleTimeString()}`
-                      : "-"}
-                  </TableCell>
-                  <TableCell>
-                    {record.hoursWorked?.toFixed(2) || "-"}時間
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={() => handleEditClick(record)}
-                    >
-                      <Edit className='h-4 w-4' />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {attendanceRecords.map((group) =>
+                group.records.map((record, index) => (
+                  <TableRow key={record.id}>
+                    <TableCell>
+                      {index === 0 ? record.date.toLocaleDateString() : ""}
+                    </TableCell>
+                    <TableCell>
+                      {record.clockIn?.toLocaleTimeString() || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {record.clockOut?.toLocaleTimeString() || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {record.breakStart && record.breakEnd
+                        ? `${record.breakStart.toLocaleTimeString()} - ${record.breakEnd.toLocaleTimeString()}`
+                        : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {record.hoursWorked?.toFixed(2) || "-"}時間
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        onClick={() => handleEditClick(record)}
+                      >
+                        <Edit className='h-4 w-4' />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
           <Button onClick={generateSVG} className='mt-4'>
