@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: kintai_test
+    environment:
+      POSTGRES_DB: kintai_test
+      POSTGRES_USER: kintai_test
+      POSTGRES_PASSWORD: kintai_test
+    ports:
+      - "54333:5432"
