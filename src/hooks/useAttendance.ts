@@ -1,15 +1,11 @@
 import { useState, useEffect } from "react";
-import { toast } from "@/components/ui/use-toast";
-import {
-  fetchAttendanceRecords,
-  getCurrentHourlyRate,
-  updateHourlyRate,
-} from "../app/actions";
+import { fetchAttendanceRecords, getCurrentHourlyRate } from "../app/actions";
 
 export const useAttendance = () => {
   const [clockedIn] = useState(false);
   const [onBreak] = useState(false);
   const [breakTaken] = useState(false);
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [hourlyRate, setHourlyRate] = useState(1000);
   const [attendanceRecords, setAttendanceRecords] = useState<
@@ -17,7 +13,6 @@ export const useAttendance = () => {
   >([]);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [password, setPassword] = useState("");
   const [newHourlyRate, setNewHourlyRate] = useState(hourlyRate);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(
     null
@@ -89,33 +84,6 @@ export const useAttendance = () => {
     setIsPasswordDialogOpen(true);
   };
 
-  const confirmHourlyRateChange = async () => {
-    if (password === "password") {
-      const result = await updateHourlyRate(newHourlyRate);
-      if (result.success) {
-        setHourlyRate(newHourlyRate);
-        setIsPasswordDialogOpen(false);
-        setPassword("");
-        toast({
-          title: "時給更新",
-          description: result.message,
-        });
-      } else {
-        toast({
-          title: "エラー",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-    } else {
-      toast({
-        title: "エラー",
-        description: "パスワードが正しくありません。",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleEditClick = (record: {
     id: number;
     date: Date;
@@ -163,16 +131,14 @@ export const useAttendance = () => {
     attendanceRecords,
     isPasswordDialogOpen,
     isEditDialogOpen,
-    password,
+
     newHourlyRate,
     editingRecord,
     setCurrentMonth,
     setIsPasswordDialogOpen,
     handleHourlyRateChange,
-    confirmHourlyRateChange,
     handleEditClick,
     // handleEditSave,
-    setPassword,
     setNewHourlyRate,
     setEditingRecord,
   };

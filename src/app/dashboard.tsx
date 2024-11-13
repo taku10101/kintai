@@ -143,23 +143,6 @@ export default function Dashboard() {
     }
   };
 
-  const calculateMonthlyWage = () => {
-    return attendanceRecords.reduce(
-      (total, group) =>
-        total +
-        group.records.reduce(
-          (dayTotal, record) =>
-            dayTotal + (record.hoursWorked || 0) * hourlyRate,
-          0
-        ),
-      0
-    );
-  };
-
-  const handleHourlyRateChange = () => {
-    setIsPasswordDialogOpen(true);
-  };
-
   const confirmHourlyRateChange = async () => {
     if (password === "password") {
       const result = await updateHourlyRate(newHourlyRate);
@@ -321,33 +304,6 @@ export default function Dashboard() {
           <Button onClick={() => recordAction("breakEnd")} disabled={!onBreak}>
             休憩終了
           </Button>
-        </CardContent>
-      </Card>
-
-      <Card className='mb-4'>
-        <CardHeader>
-          <CardTitle>時給設定</CardTitle>
-        </CardHeader>
-        <CardContent className='flex items-center gap-2'>
-          <Input
-            type='number'
-            value={newHourlyRate}
-            onChange={(e) => setNewHourlyRate(Number(e.target.value))}
-            className='w-32'
-          />
-          <span>円/時</span>
-          <Button onClick={handleHourlyRateChange}>更新</Button>
-        </CardContent>
-      </Card>
-
-      <Card className='mb-4'>
-        <CardHeader>
-          <CardTitle>月の給与</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className='text-2xl font-bold'>
-            {calculateMonthlyWage().toLocaleString()}円
-          </p>
         </CardContent>
       </Card>
 
